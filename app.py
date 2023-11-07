@@ -8,7 +8,7 @@ from langchain.llms import OpenAI
 from langchain.chat_models import ChatOpenAI
 
 app = Flask(__name__)
-llm = OpenAI(openai_api_key="INSERT_YOUR_KEY")
+llm = OpenAI(openai_api_key="YOUR_OPENAI_API_KEY")
 chat_model = ChatOpenAI()
 
 @app.route('/')
@@ -53,7 +53,7 @@ def process_message():
 def get_address(lat, lon):
     url = f"https://nominatim.openstreetmap.org/reverse?format=json&lat={lat}&lon={lon}&zoom=18&addressdetails=1"
     headers = {
-        "User-Agent": "CSSchoolProject/1.0 (harishrsk11@gmail.com)",  # Replace "YourAppName" with the name of your app
+        "User-Agent": "CSSchoolProject/1.0 (harishrsk11@gmail.com)", 
     }
     response = requests.get(url, headers=headers)
     data = response.json()
