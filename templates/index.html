@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>RESEAR.ai</title>
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"/>
+    
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+
+        #mapid {
+            height: 55vh;  /* Reduced from 80vh */
+            width: 60vw;   /* Reduced from 100vw */
+            margin: 0 auto;  /* Center the map */
+        }
+
+
+        #chat {
+            width: 20vw;
+            height: 30vh;
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            border: 1px solid #ccc;
+            padding: 10px;
+            overflow: auto;
+            background-color: white;
+        }
+
+        #inputField {
+            width: 90%;
+            padding: 10px;
+            margin-top: 10px;
+        }
+
+        .chat-messages {
+            max-height: 20vh;
+            overflow-y: auto;
+        }
+
+        .chat-message {
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+
+<h1>RESEAR.ai</h1>
+<div id="mapid"></div> <!-- The map container -->
+
+<div id="chat">
+    <div class="chat-messages"></div>
+    <input type="text" id="inputField" placeholder="Type your message here">
+</div>
+
+<script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+    var map = L.map('mapid').setView([34.0532, -118.2376], 13);  
+    
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    }).addTo(map);
+
+
+    let circle = null;
+
+    //map.on('click', function(e) {
+    //    console.log('Latitude: ' + e.latlng.lat.toFixed(4) + ', Longitude: ' + e.latlng.lng.toFixed(4));
+    //});
+
+    map.on('click', function(e) {
+    // Remove existing circle
+    if (circle !== null) {
+        map.removeLayer(circle);
+    }
+
+    // Add new circle with ~5 mile radius
+    circle = L.circle(e.latlng, {
+        color: 'red',
+        fillColor: '#f03',
+        fillOpacity: 0.5,
+        radius: 1046.72  // 5 miles in meters
+    }).addTo(map);
+    
+    console.log('Latitude: ' + e.latlng.lat.toFixed(4) + ', Longitude: ' + e.latlng.lng.toFixed(4));
+    });
+
+    document.getElementById('inputField').addEventListener('keydown', function(e) {
+        if (e.keyCode === 13) {  // Check if Enter key is pressed
+            sendMessage();
+        }
+    });
+
+    function sendMessage() {
+        var inputField = document.getElementById('inputField');
+        var chatMessages = document.querySelector('.chat-messages');
+        var messageDiv = document.createElement('div');
+
+        // Get the last clicked latitude and longitude
+        var lat = map.getCenter().lat;
+        var lng = map.getCenter().lng;
+
+        $.ajax({
+            url: "/askai",
+            type: "POST",
+            contentType: "application/json",
+            data: JSON.stringify({
+                message: inputField.value,
+                lat: lat,
+                lng: lng
+            }),
+            success: function(response) {
+                messageDiv.className = 'chat-message';
+                messageDiv.textContent = response.response.message;
+                chatMessages.appendChild(messageDiv);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+                console.log(response.response.pins)
+                console.log("Address:", response.response.location)
+                for (let name in response.response.pins) {
+                    console.log(name)
+                    let originalLatLng = response.response.pins[name];
+                    let adjustedLatLng = [originalLatLng[1], originalLatLng[0]];
+                    //let latlng = response.response.pins[name];
+                    console.log(adjustedLatLng)
+                     L.marker(adjustedLatLng).addTo(map).bindTooltip(name).openTooltip();
+                }
+            }
+        });
+
+        //inputField.value = '';  // Clear the input field
+    }
+</script>
+</body>
+</html>
