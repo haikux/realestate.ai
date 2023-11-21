@@ -3,20 +3,27 @@ import folium
 from folium import plugins
 import json
 import requests
-
+import os
+from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import text
 from langchain.llms import OpenAI
 from langchain.chat_models import ChatOpenAI
 
+openai_api_key = os.environ.get("OPENAI_API_KEY")
+
 app = Flask(__name__)
-llm = OpenAI(openai_api_key="YOUR_OPENAI_API_KEY")
+
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:realestate@localhost/realestate'
+
+llm = OpenAI(openai_api_key=openai_api_key)
 chat_model = ChatOpenAI()
 
 @app.route('/')
 def index():
     m = folium.Map(
         location=[34, -118],
-        zoom_start=13,
-        tiles='Stamen Terrain'
+        zoom_start=13
+        # tiles='Stamen Terrain'
     )
 
     folium.Circle(
@@ -49,6 +56,19 @@ def process_message():
     #"location": get_address(lat, long)
     print("JSONIFYING")
     return jsonify({"response": resp})
+
+# Initialize the SQLAlchemy extension
+db = SQLAlchemy(app)
+
+# Create a simple route to test the database connection
+@app.route('/dbtest')
+def test_db_connection():
+    try:
+        db.session.execute(text('SELECT 1'))  # Execute a simple query to test the connection
+        return 'Database connection successful!'
+    except Exception as e:
+        return f'Database connection error: {str(e)}'
+
 
 def get_address(lat, lon):
     url = f"https://nominatim.openstreetmap.org/reverse?format=json&lat={lat}&lon={lon}&zoom=18&addressdetails=1"
