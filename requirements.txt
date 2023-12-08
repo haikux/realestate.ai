@@ -1,0 +1,4 @@
+folium
+flask
+langchain
+psycopg2

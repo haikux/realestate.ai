@@ -4,31 +4,62 @@
     <meta charset="utf-8">
     <title>RESEAR.ai</title>
     
+    <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"/>
-    
+
+    <!-- Leaflet JavaScript -->
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+
+    <!-- Leaflet Heatmap Plugin -->
+    <script src="https://cdn.jsdelivr.net/npm/leaflet.heat/dist/leaflet-heat.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
         }
 
-        #mapid {
-            height: 55vh;  /* Reduced from 80vh */
-            width: 60vw;   /* Reduced from 100vw */
-            margin: 0 auto;  /* Center the map */
-        }
-
-
         #chat {
-            width: 20vw;
-            height: 30vh;
-            position: absolute;
-            bottom: 10px;
-            right: 10px;
-            border: 1px solid #ccc;
-            padding: 10px;
-            overflow: auto;
-            background-color: white;
-        }
+    width: 60vw; 
+    height: 30vh;
+    margin: 10px auto;
+    border: 1px solid #ccc;
+    padding: 10px;
+    overflow: auto;
+    background-color: white;
+    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1); 
+}
+
+#mapid {
+    height: 55vh;
+    width: 60vw;
+    margin: 40px auto 0; 
+}
+
+#search-and-filters {
+    text-align: center;
+    margin-top: 20px;
+}
+
+#searchInput,
+#aqiFilter,
+#accidentZoneFilter {
+    padding: 10px;
+    margin-right: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+#applyFilters {
+    padding: 10px 20px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+#applyFilters:hover {
+    background-color: #0056b3;
+}
 
         #inputField {
             width: 90%;
@@ -49,53 +80,143 @@
 <body>
 
 <h1>RESEAR.ai</h1>
-<div id="mapid"></div> <!-- The map container -->
-
+<div id="search-and-filters">
+    <input type="text" id="searchInput" placeholder="Search for an area..." />
+    <select id="aqiFilter">
+        <option value="">Select AQI Level</option>
+        <option value="good">Good</option>
+        <option value="moderate">Moderate</option>
+    </select>
+    <select id="accidentZoneFilter">
+        <option value="">Select Accident Risk Level</option>
+        <option value="low">Low Risk</option>
+        <option value="medium">Medium Risk</option>
+        <option value="high">High Risk</option>
+    </select>
+    <select id="radiusFilter">
+        <option value="1000">1 KM</option>
+        <option value="3000">3 KM</option>
+        <option value="5000">5 KM</option>
+        <option value="7000">7 KM</option>
+        <option value="11000">11 KM</option>
+    </select>
+    
+    <button id="applyFilters">Apply Filters</button>
+</div>
+<div id="mapid"></div>
 <div id="chat">
     <div class="chat-messages"></div>
     <input type="text" id="inputField" placeholder="Type your message here">
 </div>
-
-<script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
 <script>
-    var map = L.map('mapid').setView([34.0532, -118.2376], 13);  
-    
+    var map = L.map('mapid').setView([34.0532, -118.2376], 13);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
     }).addTo(map);
 
-
-    let circle = null;
-
-    //map.on('click', function(e) {
-    //    console.log('Latitude: ' + e.latlng.lat.toFixed(4) + ', Longitude: ' + e.latlng.lng.toFixed(4));
-    //});
+    var markerGroup = L.featureGroup().addTo(map);
+    var circle = null;
+    var currentRadius = 1000; // Default radius in meters (1 KM)
 
     map.on('click', function(e) {
-    // Remove existing circle
-    if (circle !== null) {
-        map.removeLayer(circle);
-    }
-
-    // Add new circle with ~5 mile radius
-    circle = L.circle(e.latlng, {
-        color: 'red',
-        fillColor: '#f03',
-        fillOpacity: 0.5,
-        radius: 1046.72  // 5 miles in meters
-    }).addTo(map);
-    
-    console.log('Latitude: ' + e.latlng.lat.toFixed(4) + ', Longitude: ' + e.latlng.lng.toFixed(4));
+        drawCircle(e.latlng, currentRadius);
+        fetchNearbyData(e.latlng.lat, e.latlng.lng, currentRadius);
     });
 
+    function drawCircle(latlng, radius) {
+        if (circle) {
+            map.removeLayer(circle);
+        }
+        circle = L.circle(latlng, {
+            color: 'red',
+            fillColor: '#f03',
+            fillOpacity: 0.5,
+            radius: radius
+        }).addTo(map);
+    }
+
+
+    var currentHeatmapLayer = null;
+    function fetchNearbyData(lat, lng) {
+            // Clear existing markers
+            markerGroup.clearLayers();
+            
+// Fetch nearby housing data
+fetch(`/data/nearby_housing?lat=${lat}&lon=${lng}&radius=${currentRadius}`)
+        .then(response => response.json())
+        .then(data => {
+            data.forEach(function(house) {
+                if (house.latitude && house.longitude) {
+                    var houseMarker = L.marker([house.latitude, house.longitude])
+                        .bindPopup("Rooms: " + house.total_rooms +
+                                   "<br>Bedrooms: " + house.total_bedrooms +
+                                   "<br>House Value: " + house.median_house_value)
+                        .addTo(markerGroup);
+                } else {
+                    console.log("Invalid housing location:", house);
+                }
+            });
+        })
+        .catch(error => console.error('Error fetching housing data:', error));
+
+// Fetch nearby AQI data
+fetch(`/data/nearby_aqi?lat=${lat}&lon=${lng}&radius=${currentRadius}`)
+        .then(response => response.json())
+        .then(data => {
+            data.forEach(function(aqi) {
+                if (aqi.latitude && aqi.longitude) {
+                    var aqiMarker = L.marker([aqi.latitude, aqi.longitude])
+                        .bindPopup("AQI Location: " + aqi.county + "<br>AQI Median: " + aqi.aqi_median)
+                        .addTo(markerGroup);
+                } else {
+                    console.log("Invalid AQI location:", aqi);
+                }
+            });
+        })
+        .catch(error => console.error('Error fetching AQI data:', error));
+
+    var heatMapPoints = []; 
+    if (currentHeatmapLayer) {
+        map.removeLayer(currentHeatmapLayer);
+        currentHeatmapLayer = null;
+    }
+    fetch(`/data/nearby_fatal_accidents?lat=${lat}&lon=${lng}&radius=${currentRadius}`)
+        .then(response => response.json())
+        .then(data => {
+            data.forEach(function(accident) {
+                if (accident.latitude && accident.longitude) {
+                    var intensity = accident.fatals;
+                    heatMapPoints.push([accident.latitude, accident.longitude, intensity]);
+                } else {
+                    console.log("Invalid Fatal Accident location:", accident);
+                }
+            });
+
+            // Create a heatmap layer with the points and add it to the map
+            currentHeatmapLayer = L.heatLayer(heatMapPoints, {
+                radius: 25,
+                blur: 5,
+                maxZoom: 15
+            }).addTo(map);
+        })
+        .catch(error => console.error('Error fetching Fatal Accidents data:', error));
+}
+
     document.getElementById('inputField').addEventListener('keydown', function(e) {
-        if (e.keyCode === 13) {  // Check if Enter key is pressed
+        if (e.keyCode === 13) { 
             sendMessage();
         }
     });
 
+    // Function to draw a path between two points
+    function drawPath(startLatLng, endLatLng) {
+        L.polyline([startLatLng, endLatLng], { color: 'blue' }).addTo(map);
+    }
+
     function sendMessage() {
+        // LLM Chat Connection
         var inputField = document.getElementById('inputField');
         var chatMessages = document.querySelector('.chat-messages');
         var messageDiv = document.createElement('div');
@@ -120,19 +241,78 @@
                 chatMessages.scrollTop = chatMessages.scrollHeight;
                 console.log(response.response.pins)
                 console.log("Address:", response.response.location)
+
+                var startLatLng = circle.getLatLng();
                 for (let name in response.response.pins) {
                     console.log(name)
                     let originalLatLng = response.response.pins[name];
                     let adjustedLatLng = [originalLatLng[1], originalLatLng[0]];
+                    
+                    let endLatLng = [originalLatLng[1], originalLatLng[0]];
                     //let latlng = response.response.pins[name];
+                    drawPath(startLatLng, endLatLng);
+
                     console.log(adjustedLatLng)
                      L.marker(adjustedLatLng).addTo(map).bindTooltip(name).openTooltip();
                 }
             }
         });
 
-        //inputField.value = '';  // Clear the input field
     }
+
+    document.getElementById('radiusFilter').addEventListener('change', function() {
+        currentRadius = parseInt(this.value);
+        if (circle) {
+            circle.setRadius(currentRadius);
+        }
+    });
+
+    document.getElementById('applyFilters').addEventListener('click', function() {
+    var searchQuery = document.getElementById('searchInput').value;
+    var aqiLevel = document.getElementById('aqiFilter').value;
+    var accidentRiskLevel = document.getElementById('accidentZoneFilter').value;
+
+    if (circle) {
+        var lat = circle.getLatLng().lat;
+        var lng = circle.getLatLng().lng;
+        markerGroup.clearLayers();
+
+        console.log('Applying filters:', searchQuery, aqiLevel, accidentRiskLevel);
+
+        fetch(`/data/filtered_housing?search=${searchQuery}&aqi=${aqiLevel}&accidentRisk=${accidentRiskLevel}&lat=${lat}&lon=${lng}&radius=${currentRadius}`)
+            .then(response => response.json())
+            .then(data => {
+                console.log('Fetched data:', data);
+
+                if (data && Array.isArray(data)) {
+                    data.forEach(function(house) {
+                        console.log('Adding house:', house); 
+
+                        if (house.latitude && house.longitude) {
+                            var houseMarker = L.marker([house.latitude, house.longitude])
+                                .bindPopup("House Value: " + house.median_house_value)
+                                .addTo(markerGroup);
+                        } else {
+                            console.log('Invalid house data:', house); 
+                        }
+                    });
+
+                    if (markerGroup.getLayers().length > 0) {
+                        map.fitBounds(markerGroup.getBounds()); 
+                    }
+                } else {
+                    console.log('No housing data found.');
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching filtered housing data:', error);
+            });
+    } else {
+        alert('Please pick a location on the map.');
+    }
+});
+
+    
 </script>
 </body>
 </html>

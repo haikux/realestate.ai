@@ -7,8 +7,13 @@ import requests
 from langchain.llms import OpenAI
 from langchain.chat_models import ChatOpenAI
 
+import psycopg2
+from flask import Flask, render_template, jsonify, request
+import json
+import postgis_conn as pcon
+
 app = Flask(__name__)
-llm = OpenAI(openai_api_key="YOUR_OPENAI_API_KEY")
+llm = OpenAI(openai_api_key="OPEN AI API KEY")
 chat_model = ChatOpenAI()
 
 @app.route('/')
@@ -40,14 +45,10 @@ def process_message():
     long = req.get('lng')
     address = get_address(lat, long)
     resp = askai(chat, lat, long, address)
-    
-    #return jsonify({'response': resp})
+
     print(resp)
     print(lat, long)
-    #print("Address")
-    #print(get_address(lat, long))
-    #"location": get_address(lat, long)
-    print("JSONIFYING")
+    
     return jsonify({"response": resp})
 
 def get_address(lat, lon):
@@ -98,6 +99,77 @@ def askai(message, latitude, longitude, address):
         print("Error parsing JSON:", e)
         print("Response content:", resp)
         return {"error": "Failed to parse response"}
+
+@app.route('/data/points')
+def data_points():
+    #return jsonify(pcon.points())
+    return []
+
+@app.route('/points')
+def points():
+    points_geojson = pcon.points()    
+    return jsonify(points_geojson)
+
+@app.route('/nearby_locations')
+def nearby_locations():
+    latv = request.args.get('lat', type=float)
+    lonv = request.args.get('lon', type=float)
+
+    locations = pcon.locations(latv, lonv)
+    return jsonify(locations)
+
+@app.route('/data/nearby_aqi')
+def aqi_data():
+    print("aqi_data")
+    lat = request.args.get('lat', type=float)
+    lon = request.args.get('lon', type=float)
+    radius = request.args.get('radius', type=float)
+    data = pcon.get_aqi_locations(lat, lon, radius)
+    print(data)
+    return jsonify(data)
+
+@app.route('/data/nearby_fatal_accidents')
+def nearby_fatal_accidents():
+    lat = request.args.get('lat', type=float)
+    lon = request.args.get('lon', type=float)
+    radius = request.args.get('radius', type=float)
+    data = pcon.get_fatal_accident_locations(lat, lon, radius)
+    print("Data returned from database:", data)  # Debugging line
+    return jsonify(data)
+
+@app.route('/data/nearby_housing')
+def nearby_housing():
+    lat = request.args.get('lat', type=float)
+    lon = request.args.get('lon', type=float)
+    radius = request.args.get('radius', type=float)
+    result = pcon.get_housing_data(lat, lon, radius)
+    return jsonify(result)
+
+@app.route('/data/filtered_housing')
+def get_filtered_housing():
+    # Retrieve filter parameters from query string
+    lat = request.args.get('lat', type=float)
+    lon = request.args.get('lon', type=float)
+    aqi_filter = request.args.get('aqi', '')
+    accident_risk_filter = request.args.get('accidentRisk', '')
+    radius = request.args.get('radius', '')
+    acc_level = accident_risk_filter
+    print(lat, lon, radius, acc_level)
+    aqi_thresholds = {
+        'good': 50,
+        'moderate': 100
+    }
+
+    accident_risk_thresholds = {
+        'low': 2,
+        'medium': 3,
+        'high': 10 
+    }
+
+    data = pcon.filtered_housing(lat, lon, aqi_thresholds[aqi_filter], 
+                                 accident_risk_thresholds[accident_risk_filter], acc_level, radius)
+
+    return jsonify(data)
 
 if __name__ == '__main__':
     app.run(debug=True)
