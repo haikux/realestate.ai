@@ -13,6 +13,10 @@
     <!-- Leaflet Heatmap Plugin -->
     <script src="https://cdn.jsdelivr.net/npm/leaflet.heat/dist/leaflet-heat.js"></script>
     <style>
+         h1 {
+        text-align: center;
+        margin-top: 20px; 
+        }
         body {
             font-family: Arial, sans-serif;
         }
@@ -91,14 +95,29 @@
         <option value="">Select Accident Risk Level</option>
         <option value="low">Low Risk</option>
         <option value="medium">Medium Risk</option>
-        <option value="high">High Risk</option>
     </select>
+    <label for="radiusFilter">R:</label>
     <select id="radiusFilter">
         <option value="1000">1 KM</option>
         <option value="3000">3 KM</option>
         <option value="5000">5 KM</option>
         <option value="7000">7 KM</option>
         <option value="11000">11 KM</option>
+    </select>
+
+    <label for="budgetFilter">B:</label>
+    <select id="budgetFilter">
+        <option value="100000" selected>$100,000</option>
+        <option value="200000">$200,000</option>
+        <option value="300000">$300,000</option>
+        <option value="400000">$400,000</option>
+        <option value="500000">$500,000</option>
+        <option value="600000">$600,000</option>
+        <option value="700000">$700,000</option>
+        <option value="800000">$800,000</option>
+        <option value="900000">$900,000</option>
+        <option value="1000000">$1,000,000</option>
+        <option value="2000000">$2,000,000</option>
     </select>
     
     <button id="applyFilters">Apply Filters</button>
@@ -119,6 +138,7 @@
     var markerGroup = L.featureGroup().addTo(map);
     var circle = null;
     var currentRadius = 1000; // Default radius in meters (1 KM)
+    var currentBudget = 200000;
 
     map.on('click', function(e) {
         drawCircle(e.latlng, currentRadius);
@@ -150,9 +170,7 @@ fetch(`/data/nearby_housing?lat=${lat}&lon=${lng}&radius=${currentRadius}`)
             data.forEach(function(house) {
                 if (house.latitude && house.longitude) {
                     var houseMarker = L.marker([house.latitude, house.longitude])
-                        .bindPopup("Rooms: " + house.total_rooms +
-                                   "<br>Bedrooms: " + house.total_bedrooms +
-                                   "<br>House Value: " + house.median_house_value)
+                        .bindPopup("House Value (USD): " + house.median_house_value)
                         .addTo(markerGroup);
                 } else {
                     console.log("Invalid housing location:", house);
@@ -249,7 +267,6 @@ fetch(`/data/nearby_aqi?lat=${lat}&lon=${lng}&radius=${currentRadius}`)
                     let adjustedLatLng = [originalLatLng[1], originalLatLng[0]];
                     
                     let endLatLng = [originalLatLng[1], originalLatLng[0]];
-                    //let latlng = response.response.pins[name];
                     drawPath(startLatLng, endLatLng);
 
                     console.log(adjustedLatLng)
@@ -267,6 +284,10 @@ fetch(`/data/nearby_aqi?lat=${lat}&lon=${lng}&radius=${currentRadius}`)
         }
     });
 
+    document.getElementById('budgetFilter').addEventListener('change', function() {
+        currentBudget = parseInt(this.value);
+    });
+
     document.getElementById('applyFilters').addEventListener('click', function() {
     var searchQuery = document.getElementById('searchInput').value;
     var aqiLevel = document.getElementById('aqiFilter').value;
@@ -279,7 +300,7 @@ fetch(`/data/nearby_aqi?lat=${lat}&lon=${lng}&radius=${currentRadius}`)
 
         console.log('Applying filters:', searchQuery, aqiLevel, accidentRiskLevel);
 
-        fetch(`/data/filtered_housing?search=${searchQuery}&aqi=${aqiLevel}&accidentRisk=${accidentRiskLevel}&lat=${lat}&lon=${lng}&radius=${currentRadius}`)
+        fetch(`/data/filtered_housing?search=${searchQuery}&aqi=${aqiLevel}&accidentRisk=${accidentRiskLevel}&lat=${lat}&lon=${lng}&radius=${currentRadius}&budget=${currentBudget}`)
             .then(response => response.json())
             .then(data => {
                 console.log('Fetched data:', data);
@@ -290,7 +311,7 @@ fetch(`/data/nearby_aqi?lat=${lat}&lon=${lng}&radius=${currentRadius}`)
 
                         if (house.latitude && house.longitude) {
                             var houseMarker = L.marker([house.latitude, house.longitude])
-                                .bindPopup("House Value: " + house.median_house_value)
+                                .bindPopup("House Value (USD): " + house.median_house_value)
                                 .addTo(markerGroup);
                         } else {
                             console.log('Invalid house data:', house); 

@@ -171,7 +171,7 @@ def get_housing_data(lat, lon, radius=1000):
     return houses_json
 
 
-def filtered_housing(lat, lon, aqi_filter, accident_risk_filter, acc_level, radius):
+def filtered_housing(lat, lon, aqi_filter, accident_risk_filter, acc_level, budget, radius):
     #print(lat, lon, radius)
     
     #query = """
@@ -186,13 +186,14 @@ def filtered_housing(lat, lon, aqi_filter, accident_risk_filter, acc_level, radi
     SELECT h.latitude, h.longitude, h.median_house_value 
     FROM housing_test h 
     WHERE ST_DWithin(h.location, ST_MakePoint(%s, %s)::geography, %s)
-    AND (SELECT MAX(aqi_median) FROM aqi_2022 WHERE ST_DWithin(aqi_2022.location, ST_MakePoint(%s, %s)::geography, 50000)) <= %s
-    AND (SELECT AVG(fatals) FROM fatal_accidents WHERE ST_DWithin(fatal_accidents.location, ST_MakePoint(%s, %s)::geography, %s)) <= %s;
+    AND h.median_house_value <= %s
+    AND (SELECT MIN(aqi_median) FROM aqi_2022 WHERE ST_DWithin(aqi_2022.location, ST_MakePoint(%s, %s)::geography, 50000)) <= %s
+    AND (SELECT MAX(fatals) FROM fatal_accidents WHERE ST_DWithin(fatal_accidents.location, ST_MakePoint(%s, %s)::geography, %s)) < %s;
     """
 
     cur = conn.cursor()
-    print(query % (lon, lat, radius, lon, lat, aqi_filter, lon, lat, radius, accident_risk_filter))
-    cur.execute(query, (lon, lat, radius, lon, lat, aqi_filter, lon, lat, radius, accident_risk_filter))
+    print(query % (lon, lat, radius, budget, lon, lat, aqi_filter, lon, lat, radius, accident_risk_filter))
+    cur.execute(query, (lon, lat, radius, budget, lon, lat, aqi_filter, lon, lat, radius, accident_risk_filter))
     results = cur.fetchall()
 
     houses_json = [

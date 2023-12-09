@@ -13,7 +13,7 @@ import json
 import postgis_conn as pcon
 
 app = Flask(__name__)
-llm = OpenAI(openai_api_key="OPEN AI API KEY")
+llm = OpenAI(openai_api_key="")
 chat_model = ChatOpenAI()
 
 @app.route('/')
@@ -45,10 +45,13 @@ def process_message():
     long = req.get('lng')
     address = get_address(lat, long)
     resp = askai(chat, lat, long, address)
-
+    # housing = 
+    #return jsonify({'response': resp})
     print(resp)
     print(lat, long)
-    
+    #print("Address")
+    #print(get_address(lat, long))
+    #"location": get_address(lat, long)
     return jsonify({"response": resp})
 
 def get_address(lat, lon):
@@ -150,11 +153,13 @@ def get_filtered_housing():
     # Retrieve filter parameters from query string
     lat = request.args.get('lat', type=float)
     lon = request.args.get('lon', type=float)
+    budget = request.args.get('budget', default=200000, type=int)
+
     aqi_filter = request.args.get('aqi', '')
     accident_risk_filter = request.args.get('accidentRisk', '')
     radius = request.args.get('radius', '')
     acc_level = accident_risk_filter
-    print(lat, lon, radius, acc_level)
+    print(lat, lon, radius, acc_level, budget)
     aqi_thresholds = {
         'good': 50,
         'moderate': 100
@@ -167,7 +172,7 @@ def get_filtered_housing():
     }
 
     data = pcon.filtered_housing(lat, lon, aqi_thresholds[aqi_filter], 
-                                 accident_risk_thresholds[accident_risk_filter], acc_level, radius)
+                                 accident_risk_thresholds[accident_risk_filter], acc_level, budget, radius)
 
     return jsonify(data)
 
