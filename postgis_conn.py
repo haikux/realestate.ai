@@ -188,7 +188,7 @@ def filtered_housing(lat, lon, aqi_filter, accident_risk_filter, acc_level, budg
     WHERE ST_DWithin(h.location, ST_MakePoint(%s, %s)::geography, %s)
     AND h.median_house_value <= %s
     AND (SELECT MIN(aqi_median) FROM aqi_2022 WHERE ST_DWithin(aqi_2022.location, ST_MakePoint(%s, %s)::geography, 50000)) <= %s
-    AND (SELECT MAX(fatals) FROM fatal_accidents WHERE ST_DWithin(fatal_accidents.location, ST_MakePoint(%s, %s)::geography, %s)) < %s;
+    AND (SELECT AVG(fatals) FROM fatal_accidents WHERE ST_DWithin(fatal_accidents.location, ST_MakePoint(%s, %s)::geography, %s)) < %s;
     """
 
     cur = conn.cursor()
